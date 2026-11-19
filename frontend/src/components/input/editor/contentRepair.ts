@@ -114,3 +114,79 @@ function openDepth(content: Fragment, open: number, fromEnd = false): number {
 
 	return depth
 }
+
+/**
+ * Plain-text form of a copied slice. ProseMirror's default drops list markers, which
+ * turns a copied list into a pile of unrelated lines.
+ */
+export function serializeSliceAsText(slice: Slice): string {
+	return blocksToText(slice.content, '').join('\n\n')
+}
+
+function blocksToText(fragment: Fragment, indent: string): string[] {
+	const blocks: string[] = []
+	fragment.forEach(node => {
+		const text = blockToText(node, indent)
+		if (text !== '') {
+			blocks.push(text)
+		}
+	})
+	return blocks
+}
+
+function inlineText(node: ProseMirrorNode): string {
+	return node.textBetween(0, node.content.size, '\n', leaf => leaf.type.spec.leafText?.(leaf) ?? '')
+}
+
+function itemMarker(list: ProseMirrorNode | null, item: ProseMirrorNode, index: number): string {
+	if (list?.type.name === 'orderedList') {
+		return `${index}. `
+	}
+	if (list?.type.name === 'taskList' || item.type.name === 'taskItem') {
+		return item.attrs.checked ? '- [x] ' : '- [ ] '
+	}
+	return '- '
+}
+
+function listText(node: ProseMirrorNode, indent: string): string {
+	const lines: string[] = []
+	let index = Number(node.attrs.start ?? 1)
+	node.forEach(item => {
+		lines.push(listItemText(item, indent, itemMarker(node, item, index++)))
+	})
+	return lines.join('\n')
+}
+
+function listItemText(item: ProseMirrorNode, indent: string, marker: string): string {
+	const childIndent = indent + ' '.repeat(marker.length)
+	const parts: string[] = []
+	item.forEach(child => {
+		const text = blockToText(child, childIndent)
+		if (text !== '') {
+			parts.push(text)
+		}
+	})
+	if (parts.length === 0) {
+		return indent + marker.trimEnd()
+	}
+	// The first block continues on the marker's line, replacing its own indentation.
+	parts[0] = indent + marker + parts[0].slice(childIndent.length)
+	return parts.join('\n')
+}
+
+function blockToText(node: ProseMirrorNode, indent: string): string {
+	const name = node.type.name
+	if (name === 'bulletList' || name === 'orderedList' || name === 'taskList') {
+		return listText(node, indent)
+	}
+	if (name === 'listItem' || name === 'taskItem') {
+		return listItemText(node, indent, itemMarker(null, node, 1))
+	}
+	if (node.isTextblock) {
+		return inlineText(node).split('\n').map(line => indent + line).join('\n')
+	}
+	if (node.isLeaf) {
+		return indent + (node.type.spec.leafText?.(node) ?? '')
+	}
+	return blocksToText(node.content, indent).join('\n\n')
+}

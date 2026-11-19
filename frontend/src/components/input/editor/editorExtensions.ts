@@ -23,7 +23,7 @@ import {ListKeymapWithJoin} from './listKeymapWithJoin'
 import {DeleteSelectionBeforeEnter} from './deleteSelectionBeforeEnter'
 import {BlockquoteWithCommentId} from './blockquoteWithCommentId'
 import {TaskLink, LINK_HTML_ATTRIBUTES} from './taskLink'
-import {createClipboardParser, fillRequiredContent, repairSliceContent} from './contentRepair'
+import {createClipboardParser, fillRequiredContent, repairSliceContent, serializeSliceAsText} from './contentRepair'
 import {htmlHasFormatting} from './clipboardHtml'
 
 import Commands from './commands'
@@ -233,6 +233,7 @@ export function createEditorExtensions(deps: EditorExtensionDeps): Extensions {
 					props: {
 						clipboardParser: createClipboardParser(this.editor.schema),
 						transformPasted: slice => repairSliceContent(slice),
+							clipboardTextSerializer: slice => serializeSliceAsText(slice),
 
 						handlePaste: (view, event) => {
 
